@@ -38,14 +38,14 @@ create_snapshot()
     fi
 
     # loop through datasets, do snapshots of each
-    for dataset in $datasets; do
+    printf "%s" "${datasets}" | while IFS= read -r dataset; do
         snapshot="$dataset@$now"
         # look for an existing snapshot with this name
-        if zfs list $snapshot > /dev/null 2>&1; then
+        if zfs list "$snapshot" > /dev/null 2>&1; then
             echo "     snapshot $snapshot already exists, skipping..."
         else
             echo "     taking snapshot: $snapshot"
-            zfs snapshot $snapshot
+            zfs snapshot "$snapshot"
         fi
     done
 }
@@ -55,12 +55,12 @@ delete_snapshot()
 {
     snapshot=$1
     echo "     destroying old snapshot, $snapshot"
-    if ! echo $snapshot | grep -q @; then
+    if ! printf "%s" "$snapshot" | grep -q @; then
         # refuse to destroy something that doesn't look like a snapshot
         echo >&2 "     aborting: not a snapshot: $snapshot"
         exit 1
     fi
-    zfs destroy -r $snapshot
+    zfs destroy -r "$snapshot"
 }
 
 # take a type snapshot of pool, keeping keep old ones
@@ -110,17 +110,17 @@ do_pool()
     # (using sort as zfs's sort seems to have bugs)
     snapshots=`zfs list -H -o name -t snapshot | sort | grep $regex`
     # count them
-    count=`echo $snapshots | wc -w`
+    count=`printf "%s" "$snapshots" | wc -l`
     if [ $count -ge 0 ]; then
         # how many items should we delete
         delete=`expr $count - $keep`
         count=0
         # walk through the snapshots, deleting them until we've trimmed deleted
-        for snapshot in $snapshots; do
+        printf "%s" "${snapshots}" | while IFS= read -r snapshot; do
             if [ $count -ge $delete ]; then
                 break
             fi
-            delete_snapshot $snapshot
+            delete_snapshot "$snapshot"
             count=`expr $count + 1`
         done
     fi
